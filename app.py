@@ -1,5 +1,5 @@
 """
-Book Log & Think — Streamlit メインアプリ
+Book Log & Think — Streamlit メインアプリ (グラフ表示版)
 """
 import streamlit as st
 import pandas as pd
@@ -7,6 +7,7 @@ from datetime import date, datetime
 import gspread
 from google.oauth2.service_account import Credentials
 from logic import is_alert, validate_dates
+import plotly.express as px  # グラフ用に追加
 
 # ── Google Sheets 接続 ──────────────────────────────────────────────
 SCOPES = [
@@ -22,7 +23,6 @@ def get_worksheet():
         st.secrets["gcp_service_account"], scopes=SCOPES
     )
     client = gspread.authorize(creds)
-    # スプレッドシートを開く
     sh = client.open(SHEET_NAME) 
     try:
         return sh.worksheet(WORKSHEET)
@@ -50,7 +50,7 @@ def save_all(ws, df: pd.DataFrame):
 # ── ページ設定 ──
 st.set_page_config(page_title="Book Log & Think", page_icon="📚", layout="wide")
 
-# 🔐 簡易認証機能（ボタン式で確実に動作させる）
+# 🔐 簡易認証機能
 if "password_correct" not in st.session_state:
     st.session_state["password_correct"] = False
 
@@ -84,6 +84,19 @@ col1.metric("総登録数", len(df))
 col2.metric("未読",     len(df[df.status == "unread"]))
 col3.metric("読書中",   len(df[df.status == "reading"]))
 col4.metric("読了",     len(df[df.status == "done"]))
+
+# 📊 追加機能：分類の割合グラフ
+if not df.empty:
+    cat_counts = df["category"].value_counts().reset_index()
+    cat_counts.columns = ["分類", "冊数"]
+    
+    fig = px.pie(cat_counts, values="冊数", names="分類", 
+                 title="読書分類の割合",
+                 hole=0.4,
+                 color_discrete_sequence=px.colors.qualitative.Pastel)
+    
+    fig.update_layout(margin=dict(t=50, b=0, l=0, r=0), height=350)
+    st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
