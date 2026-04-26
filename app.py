@@ -1,6 +1,3 @@
-"""
-Book Log & Think — Streamlit メインアプリ (バグ修正版)
-"""
 import streamlit as st
 import pandas as pd
 from datetime import date, datetime
@@ -31,27 +28,24 @@ def load_books(ws) -> pd.DataFrame:
     if not data:
         return pd.DataFrame(columns=["id","title","author","category","status","start_date","end_date","note"])
     df = pd.DataFrame(data)
-    # IDを確実に数値として扱う
     df["id"] = pd.to_numeric(df["id"], errors="coerce").fillna(0).astype(int)
+    # 日付変換をより安全に
     df["start_date"] = pd.to_datetime(df["start_date"], errors="coerce").dt.date
     df["end_date"]   = pd.to_datetime(df["end_date"],   errors="coerce").dt.date
     return df
 
 def save_all(ws, df: pd.DataFrame):
     ws.clear()
-    # 数値を文字列に変換する前に、空データを徹底的に処理
     df2 = df.copy()
+    # 保存前に日付を確実に文字列化
     df2["start_date"] = df2["start_date"].apply(lambda x: str(x) if pd.notnull(x) and x != "" else "")
     df2["end_date"]   = df2["end_date"].apply(lambda x: str(x) if pd.notnull(x) and x != "" else "")
     df2 = df2.fillna("")
-    
-    # スプレッドシートに書き込み
     ws.update([df2.columns.tolist()] + df2.values.tolist())
 
 # ── ページ設定 ──
 st.set_page_config(page_title="Book Log & Think", page_icon="📚", layout="wide")
 
-# 🔐 簡易認証
 if "password_correct" not in st.session_state:
     st.session_state["password_correct"] = False
 
@@ -77,7 +71,7 @@ STATUS_RMAP= {v: k for k, v in STATUS_MAP.items()}
 ws = get_worksheet()
 df = load_books(ws)
 
-# ── サマリー & グラフ ──
+# 📊 サマリー
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("総登録数", len(df))
 col2.metric("未読",     len(df[df.status == "unread"]))
@@ -93,7 +87,7 @@ if not df.empty:
 
 st.divider()
 
-# ── フィルタ & 一覧表示 ──
+# ── フィルタ & 一覧 ──
 fcol1, fcol2 = st.columns(2)
 f_status = fcol1.selectbox("表示ステータスで絞り込み", ["すべて"] + STATUSES)
 f_cat    = fcol2.selectbox("表示分類で絞り込み", ["すべて"] + CATEGORIES)
@@ -127,11 +121,10 @@ else:
 
 st.divider()
 
-# ── 登録・編集フォーム ──
+# ── フォーム ──
 with st.expander("➕ 本を追加 / 編集する"):
-    # IDを明示的に表示して選択ミスを防ぐ
     options = ["新規追加"] + [f"ID:{row['id']} - {row['title']}" for _, row in df.iterrows()]
-    edit_sel_label = st.selectbox("編集する本を選択（新規の場合は「新規追加」）", options)
+    edit_sel_label = st.selectbox("編集する本を選択", options)
 
     if edit_sel_label == "新規追加":
         init = {"id": None, "title":"","author":"","category":CATEGORIES[0],"status":"未読","start_date":None,"end_date":None,"note":""}
@@ -146,9 +139,15 @@ with st.expander("➕ 本を追加 / 編集する"):
         author = st.text_input("著者 *", value=init["author"])
         cat = st.selectbox("分類 *", CATEGORIES, index=CATEGORIES.index(init["category"]) if init["category"] in CATEGORIES else 0)
         status = st.selectbox("ステータス *", STATUSES, index=STATUSES.index(init["status"]) if init["status"] in STATUSES else 0)
-        start_date = st.date_input("読書開始日", value=init["start_date"] or date.today()) if status in ["読書中","読了"] else None
-        end_date = st.date_input("読了日", value=init["end_date"] or date.today()) if status == "読了" else None
-        note = st.text_area("感想・言語化", value=init["note"])
+        
+        # 安全な日付の初期値設定（ここが重要！）
+        safe_start = init["start_date"] if pd.notnull(init["start_date"]) else date.today()
+        safe_end = init["end_date"] if pd.notnull(init["end_date"]) else date.today()
+        
+        start_date = st.date_input("読書開始日", value=safe_start) if status in ["読書中","読了"] else None
+        end_date = st.date_input("読了日", value=safe_end) if status == "読了" else None
+        
+        note = st.text_area("感想・言語化", value=init["note"] if pd.notnull(init["note"]) else "")
         submitted = st.form_submit_button("保存する")
 
     if submitted:
