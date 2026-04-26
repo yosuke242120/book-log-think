@@ -121,7 +121,7 @@ def make_display(row):
 
 if not view.empty:
     disp = view.apply(make_display, axis=1)
-    st.dataframe(disp.drop(columns=["_alert"]).style.apply(lambda r: ["background-color: #fff0f0"]*len(r) if r["⚠️"] else ["" Japanese]*len(r), axis=1), use_container_width=True, hide_index=True) # indexを隠す
+    st.dataframe(disp.drop(columns=["_alert"]).style.apply(lambda r: ["background-color: #fff0f0"]*len(r) if r["⚠️"] else [""]*len(r), axis=1), use_container_width=True, hide_index=True)
 else:
     st.info("該当する本がありません。")
 
